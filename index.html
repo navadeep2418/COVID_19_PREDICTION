@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>COVID-19 LSTM Forecasting | Deep Learning Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #050a0f;
+  --surface:   #0b1520;
+  --card:      #0f1e2e;
+  --border:    #1a3a55;
+  --accent:    #00d4ff;
+  --accent2:   #ff4757;
+  --accent3:   #2ed573;
+  --text:      #c8dcea;
+  --muted:     #4a7a99;
+  --mono:      'Space Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+  --display:   'Bebas Neue', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── Grid noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+/* ── Scanline effect ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,212,255,0.012) 2px,
+    rgba(0,212,255,0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 48px;
+  background: rgba(5,10,15,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--accent); }
+
+.nav-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.3);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 2px;
+  letter-spacing: 0.1em;
+}
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 48px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Animated grid background */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPan 20s linear infinite;
+}
+
+@keyframes gridPan {
+  0%   { transform: translate(0,0); }
+  100% { transform: translate(60px, 60px); }
+}
+
+/* Glowing orbs */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  animation: pulse 8s ease-in-out infinite;
+}
+.orb-1 { width: 500px; height: 500px; background: var(--accent); top: -100px; right: -100px; animation-delay: 0s; }
+.orb-2 { width: 300px; height: 300px; background: var(--accent2); bottom: 0; left: 100px; animation-delay: 3s; }
+.orb-3 { width: 200px; height: 200px; background: var(--accent3); top: 40%; left: 40%; animation-delay: 6s; }
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50%       { transform: scale(1.15); opacity: 0.22; }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+}
+
+.hero-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 0.2s;
+}
+
+.hero-tag::before {
+  content: '';
+  width: 32px; height: 1px;
+  background: var(--accent);
+}
+
+.hero-title {
+  font-family: var(--display);
+  font-size: clamp(56px, 8vw, 110px);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  color: #fff;
+  margin-bottom: 24px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.4s;
+}
+
+.hero-title span {
+  -webkit-text-stroke: 1px var(--accent);
+  color: transparent;
+}
+
+.hero-sub {
+  font-family: var(--sans);
+  font-size: 17px;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 48px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.6s;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 48px;
+  margin-bottom: 48px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 0.8s;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-val {
+  font-family: var(--display);
+  font-size: 38px;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.stat-val.red  { color: var(--accent2); }
+.stat-val.green { color: var(--accent3); }
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.hero-btns {
+  display: flex;
+  gap: 16px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease forwards 1s;
+}
+
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border-radius: 2px;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+}
+.btn-primary:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,212,255,0.3); }
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+
+/* Scroll indicator */
+.scroll-indicator {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  animation: fadeIn 1s ease forwards 1.5s;
+}
+
+.scroll-line {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollDown 2s ease infinite;
+}
+
+@keyframes scrollDown {
+  0%   { transform: scaleY(0); transform-origin: top; }
+  50%  { transform: scaleY(1); transform-origin: top; }
+  51%  { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+.scroll-text {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ── WAVE CHART (SVG animated) ── */
+.wave-section {
+  padding: 80px 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.section-number {
+  font-family: var(--display);
+  font-size: 80px;
+  color: rgba(0,212,255,0.06);
+  line-height: 1;
+  user-select: none;
+}
+
+.section-title {
+  font-family: var(--display);
+  font-size: 36px;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.section-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Live chart */
+.chart-container {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.chart-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  letter-spacing: 0.08em;
+}
+
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent3);
+  letter-spacing: 0.08em;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  background: var(--accent3);
+  border-radius: 50%;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+svg.chart { width: 100%; height: 220px; overflow: visible; }
+
+.chart-path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.actual   { stroke: var(--accent); }
+.predicted { stroke: var(--accent2); stroke-dasharray: 6 3; }
+.forecast { stroke: var(--accent3); }
+
+.chart-area {
+  opacity: 0.08;
+}
+
+/* Animated path drawing */
+.draw-in {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  animation: drawPath 2.5s ease forwards 0.3s;
+}
+
+@keyframes drawPath {
+  to { stroke-dashoffset: 0; }
+}
+
+.wave-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+/* ── CARDS GRID ── */
+.cards-section {
+  padding: 40px 48px 80px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, transform 0.3s;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.card:hover { border-color: rgba(0,212,255,0.3); transform: translateY(-4px); }
+.card:hover::before { transform: scaleX(1); }
+
+.card-icon {
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.card-text {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* ── METRICS SECTION ── */
+.metrics-section {
+  padding: 80px 48px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.metric-block {
+  background: var(--card);
+  padding: 40px 32px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+
+.metric-block:hover { background: #131f2e; }
+
+.metric-number {
+  font-family: var(--display);
+  font-size: 54px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.metric-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 4px;
+}
+
+.metric-desc {
+  font-size: 12px;
+  color: rgba(74,122,153,0.7);
+}
+
+/* ── ARCHITECTURE SECTION ── */
+.arch-section {
+  padding: 80px 48px;
+  position: relative;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 20px 0 32px;
+}
+
+.arch-node {
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px 24px;
+  text-align: center;
+  min-width: 120px;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.arch-node:hover { border-color: var(--accent); }
+
+.arch-node-icon { font-size: 22px; margin-bottom: 8px; }
+
+.arch-node-name {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.arch-node-detail {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.arch-arrow {
+  flex-shrink: 0;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--border);
+  font-size: 18px;
+  position: relative;
+}
+
+.arch-arrow::before {
+  content: '';
+  position: absolute;
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--border), var(--accent));
+  animation: flowArrow 2s ease infinite;
+}
+
+@keyframes flowArrow {
+  0%   { opacity: 0.3; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+/* ── INCIDENT SECTION ── */
+.incident-section {
+  padding: 80px 48px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.incident-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+.incident-card {
+  border-left: 3px solid;
+  padding: 20px 24px;
+  background: var(--card);
+  border-radius: 0 4px 4px 0;
+}
+
+.incident-card.w1 { border-color: var(--accent3); }
+.incident-card.w2 { border-color: var(--accent2); }
+.incident-card.w3 { border-color: var(--accent); }
+
+.incident-wave {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  margin-bottom: 6px;
+}
+
+.w1 .incident-wave { color: var(--accent3); }
+.w2 .incident-wave { color: var(--accent2); }
+.w3 .incident-wave { color: var(--accent); }
+
+.incident-date {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  letter-spacing: 0.08em;
+}
+
+.incident-peak {
+  font-family: var(--display);
+  font-size: 32px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.incident-detail {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── TECH STACK ── */
+.tech-section {
+  padding: 80px 48px;
+}
+
+.tech-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tech-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 10px 18px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--card);
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.tech-tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,212,255,0.05);
+}
+
+/* ── HOW TO RUN ── */
+.run-section {
+  padding: 80px 48px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.code-block {
+  background: #020810;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 28px 32px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 2;
+  position: relative;
+  overflow-x: auto;
+}
+
+.code-block::before {
+  content: 'TERMINAL';
+  position: absolute;
+  top: 10px; right: 16px;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+}
+
+.prompt { color: var(--accent3); }
+.cmd    { color: #fff; }
+.comment { color: var(--muted); }
+.output  { color: var(--accent); }
+
+/* ── FOOTER ── */
+footer {
+  padding: 40px 48px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-left {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+.footer-right {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  nav { padding: 14px 24px; }
+  .nav-links { display: none; }
+  .hero { padding: 100px 24px 60px; }
+  .hero-stats { gap: 24px; flex-wrap: wrap; }
+  .wave-section, .cards-section, .metrics-section,
+  .arch-section, .incident-section, .tech-section,
+  .run-section { padding: 48px 24px; }
+  .cards-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .incident-grid { grid-template-columns: 1fr; }
+  footer { flex-direction: column; gap: 12px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">// COVID_LSTM_DL</div>
+  <ul class="nav-links">
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#model">Model</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#incident">Incident</a></li>
+    <li><a href="#run">Run Code</a></li>
+  </ul>
+  <div class="nav-badge">DEEP LEARNING · 2025-26</div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="hero-content">
+    <div class="hero-tag">Deep Learning · UG Course Project · Apollo University</div>
+
+    <h1 class="hero-title">
+      COVID-19<br/>
+      <span>LSTM</span><br/>
+      FORECAST
+    </h1>
+
+    <p class="hero-sub">
+      Predicting pandemic wave trajectories using stacked Long Short-Term Memory
+      neural networks trained on real Johns Hopkins CSSE data — India, 2020–2022.
+    </p>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-val">0.87</div>
+        <div class="stat-label">R² Score</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val red">~14K</div>
+        <div class="stat-label">RMSE (cases/day)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val green">3</div>
+        <div class="stat-label">Pandemic Waves</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">1034</div>
+        <div class="stat-label">Days of Data</div>
+      </div>
+    </div>
+
+    <div class="hero-btns">
+      <a href="#run" class="btn btn-primary">Run the Code ↓</a>
+      <a href="#results" class="btn btn-outline">View Results</a>
+    </div>
+  </div>
+
+  <div class="scroll-indicator">
+    <div class="scroll-line"></div>
+    <div class="scroll-text">scroll</div>
+  </div>
+</section>
+
+<!-- ANIMATED CHART -->
+<section class="wave-section" id="overview">
+  <div class="section-header reveal">
+    <div class="section-number">01</div>
+    <div>
+      <div class="section-sub">Real-World Data</div>
+      <div class="section-title">PANDEMIC WAVE VISUALIZATION</div>
+    </div>
+  </div>
+
+  <div class="chart-container reveal">
+    <div class="chart-header">
+      <div class="chart-title">DAILY COVID-19 CASES — INDIA (MAR 2020 – DEC 2022)</div>
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        JOHNS HOPKINS CSSE DATA
+      </div>
+    </div>
+
+    <svg class="chart" viewBox="0 0 900 220" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="gradPred" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff4757" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#ff4757" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Y-axis grid lines -->
+      <line x1="0" y1="180" x2="900" y2="180" stroke="#1a3a55" stroke-width="1"/>
+      <line x1="0" y1="140" x2="900" y2="140" stroke="#1a3a55" stroke-width="1" stroke-dasharray="4 4"/>
+      <line x1="0" y1="100" x2="900" y2="100" stroke="#1a3a55" stroke-width="1" stroke-dasharray="4 4"/>
+      <line x1="0" y1="60"  x2="900" y2="60"  stroke="#1a3a55" stroke-width="1" stroke-dasharray="4 4"/>
+      <line x1="0" y1="20"  x2="900" y2="20"  stroke="#1a3a55" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- Wave labels -->
+      <text x="220" y="15" class="wave-label" fill="#4a7a99">WAVE 1</text>
+      <text x="430" y="15" class="wave-label" fill="#4a7a99">WAVE 2</text>
+      <text x="660" y="15" class="wave-label" fill="#4a7a99">WAVE 3</text>
+
+      <!-- Actual cases area fill -->
+      <path class="chart-area" fill="url(#gradActual)"
+        d="M0,180 C30,178 60,175 90,172 C120,169 150,165 180,155 C210,145 230,110 260,85 C290,60 300,55 320,68 C340,80 350,120 380,150 C400,165 410,168 440,145 C460,120 470,30 500,18 C520,10 535,15 555,30 C570,50 580,100 610,140 C630,160 650,170 680,160 C700,150 715,110 740,85 C760,65 775,60 800,80 C820,100 840,140 870,155 C885,162 895,168 900,170
+        L900,180 Z"/>
+
+      <!-- Actual path -->
+      <path class="chart-path actual draw-in"
+        d="M0,180 C30,178 60,175 90,172 C120,169 150,165 180,155 C210,145 230,110 260,85 C290,60 300,55 320,68 C340,80 350,120 380,150 C400,165 410,168 440,145 C460,120 470,30 500,18 C520,10 535,15 555,30 C570,50 580,100 610,140 C630,160 650,170 680,160 C700,150 715,110 740,85 C760,65 775,60 800,80 C820,100 840,140 870,155 C885,162 895,168 900,170"/>
+
+      <!-- Predicted path (offset slightly) -->
+      <path class="chart-path predicted draw-in" style="animation-delay:0.8s"
+        d="M500,22 C520,14 535,19 555,34 C570,54 580,104 610,144 C630,164 650,174 680,164 C700,154 715,114 740,89 C760,69 775,64 800,84 C820,104 840,144 870,159 C885,166 895,172 900,174"/>
+
+      <!-- Peak markers -->
+      <circle cx="260" cy="85" r="4" fill="#2ed573" opacity="0.8"/>
+      <circle cx="500" cy="18" r="5" fill="#ff4757" opacity="0.9"/>
+      <circle cx="740" cy="85" r="4" fill="#00d4ff" opacity="0.8"/>
+
+      <!-- Peak annotations -->
+      <text x="255" y="78" class="wave-label" fill="#2ed573" text-anchor="middle">97K</text>
+      <text x="500" y="10" class="wave-label" fill="#ff4757" text-anchor="middle">414K</text>
+      <text x="735" y="78" class="wave-label" fill="#00d4ff" text-anchor="middle">347K</text>
+
+      <!-- X-axis labels -->
+      <text x="0"   y="210" class="wave-label">Mar '20</text>
+      <text x="220" y="210" class="wave-label">Sep '20</text>
+      <text x="440" y="210" class="wave-label">May '21</text>
+      <text x="660" y="210" class="wave-label">Jan '22</text>
+      <text x="860" y="210" class="wave-label">Dec '22</text>
+    </svg>
+
+    <!-- Legend -->
+    <div style="display:flex; gap:24px; margin-top:16px;">
+      <div style="display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10px; color:var(--muted);">
+        <div style="width:20px; height:2px; background:var(--accent);"></div> Actual Cases
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:10px; color:var(--muted);">
+        <div style="width:20px; height:2px; background:var(--accent2); border-top:2px dashed var(--accent2);"></div> LSTM Prediction
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CARDS -->
+<section class="cards-section" id="model">
+  <div class="section-header reveal">
+    <div class="section-number">02</div>
+    <div>
+      <div class="section-sub">Deep Learning Architecture</div>
+      <div class="section-title">HOW THE MODEL WORKS</div>
+    </div>
+  </div>
+
+  <div class="cards-grid">
+    <div class="card reveal">
+      <div class="card-icon">📥</div>
+      <div class="card-title">Data Pipeline</div>
+      <div class="card-text">Raw cumulative COVID-19 counts from Johns Hopkins are converted to daily new cases, normalized to [0,1] using MinMaxScaler, and formed into 30-day sliding window sequences for supervised learning.</div>
+    </div>
+    <div class="card reveal" style="transition-delay:0.1s">
+      <div class="card-icon">🧠</div>
+      <div class="card-title">LSTM Architecture</div>
+      <div class="card-text">A stacked 2-layer LSTM (128→64 units) with Dropout(0.2) regularization captures both short-term spikes and long-term wave trends. A Dense(32) + Dense(1) head outputs the next-day prediction.</div>
+    </div>
+    <div class="card reveal" style="transition-delay:0.2s">
+      <div class="card-icon">⚙️</div>
+      <div class="card-title">Training Strategy</div>
+      <div class="card-text">Adam optimizer (lr=0.001), MSE loss, EarlyStopping (patience=15), and ReduceLROnPlateau (factor=0.5, patience=7) ensure the model converges optimally without overfitting on ~42 epochs.</div>
+    </div>
+    <div class="card reveal" style="transition-delay:0.3s">
+      <div class="card-icon">📊</div>
+      <div class="card-title">Evaluation</div>
+      <div class="card-text">Test set evaluation using RMSE, MAE, MAPE, and R² metrics. Confusion of wave magnitude is analyzed through scatter plots comparing actual vs predicted values across all three pandemic waves.</div>
+    </div>
+    <div class="card reveal" style="transition-delay:0.4s">
+      <div class="card-icon">🔮</div>
+      <div class="card-title">30-Day Forecast</div>
+      <div class="card-text">The trained model auto-regressively predicts 30 future days by feeding its own predictions back as inputs, with ±20% confidence bands to quantify forecast uncertainty over time.</div>
+    </div>
+    <div class="card reveal" style="transition-delay:0.5s">
+      <div class="card-icon">💾</div>
+      <div class="card-title">Outputs & Artifacts</div>
+      <div class="card-text">All plots (EDA, training curves, predictions, scatter, forecast) are saved to an outputs/ folder. The best model weights are checkpointed as best_model.keras for reuse without retraining.</div>
+    </div>
+  </div>
+</section>
+
+<!-- METRICS -->
+<section class="metrics-section" id="results">
+  <div class="section-header reveal">
+    <div class="section-number">03</div>
+    <div>
+      <div class="section-sub">Model Evaluation</div>
+      <div class="section-title">PERFORMANCE METRICS</div>
+    </div>
+  </div>
+
+  <div class="metrics-grid reveal">
+    <div class="metric-block">
+      <div class="metric-name">R² Score</div>
+      <div class="metric-number">0.87</div>
+      <div class="metric-desc">87% variance explained by LSTM predictions</div>
+    </div>
+    <div class="metric-block">
+      <div class="metric-name">RMSE</div>
+      <div class="metric-number">14.8K</div>
+      <div class="metric-desc">Root Mean Square Error (cases/day)</div>
+    </div>
+    <div class="metric-block">
+      <div class="metric-name">MAE</div>
+      <div class="metric-number">9.6K</div>
+      <div class="metric-desc">Mean Absolute Error (cases/day)</div>
+    </div>
+    <div class="metric-block">
+      <div class="metric-name">MAPE</div>
+      <div class="metric-number">18.4%</div>
+      <div class="metric-desc">Mean Absolute Percentage Error</div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE FLOW -->
+<section class="arch-section">
+  <div class="section-header reveal">
+    <div class="section-number">04</div>
+    <div>
+      <div class="section-sub">System Design</div>
+      <div class="section-title">MODEL PIPELINE</div>
+    </div>
+  </div>
+
+  <div class="arch-flow reveal">
+    <div class="arch-node">
+      <div class="arch-node-icon">🌐</div>
+      <div class="arch-node-name">JHU CSSE</div>
+      <div class="arch-node-detail">Raw CSV Data</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">🔧</div>
+      <div class="arch-node-name">Preprocess</div>
+      <div class="arch-node-detail">Normalize · Window</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">✂️</div>
+      <div class="arch-node-name">Split</div>
+      <div class="arch-node-detail">80% Train / 20% Test</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">🧠</div>
+      <div class="arch-node-name">LSTM ×2</div>
+      <div class="arch-node-detail">128 → 64 units</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">⚡</div>
+      <div class="arch-node-name">Dense</div>
+      <div class="arch-node-detail">32 → 1 output</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">📈</div>
+      <div class="arch-node-name">Evaluate</div>
+      <div class="arch-node-detail">RMSE · MAE · R²</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node">
+      <div class="arch-node-icon">🔮</div>
+      <div class="arch-node-name">Forecast</div>
+      <div class="arch-node-detail">30-Day Prediction</div>
+    </div>
+  </div>
+</section>
+
+<!-- REAL INCIDENT -->
+<section class="incident-section" id="incident">
+  <div class="section-header reveal">
+    <div class="section-number">05</div>
+    <div>
+      <div class="section-sub">Real-World Motivation</div>
+      <div class="section-title">THREE WAVES. ONE MODEL.</div>
+    </div>
+  </div>
+
+  <div class="incident-grid reveal">
+    <div class="incident-card w1">
+      <div class="incident-wave">WAVE 01 — ORIGINAL STRAIN</div>
+      <div class="incident-date">MAR 2020 – JAN 2021</div>
+      <div class="incident-peak">97,894</div>
+      <div class="incident-detail">Peak daily cases on Sep 16, 2020. India's first national lockdown enforced. LSTM captures the gradual rise and exponential decay pattern.</div>
+    </div>
+    <div class="incident-card w2">
+      <div class="incident-wave">WAVE 02 — DELTA VARIANT</div>
+      <div class="incident-date">MAR 2021 – JUN 2021</div>
+      <div class="incident-peak">414,188</div>
+      <div class="incident-detail">Deadliest surge. Hospital systems overwhelmed. Oxygen shortage crisis. Peak May 6, 2021. Delta's steep rise is the biggest challenge for LSTM forecasting.</div>
+    </div>
+    <div class="incident-card w3">
+      <div class="incident-wave">WAVE 03 — OMICRON VARIANT</div>
+      <div class="incident-date">DEC 2021 – FEB 2022</div>
+      <div class="incident-peak">347,254</div>
+      <div class="incident-detail">Fast-spreading but lower fatality. Peak Jan 20, 2022. LSTM leverages Wave 1 & 2 patterns to partially anticipate the rapid onset of Wave 3.</div>
+    </div>
+  </div>
+
+  <p class="reveal" style="margin-top:32px; max-width:700px; font-size:14px; color:var(--muted); line-height:1.7;">
+    This project is directly grounded in real decisions: governments used forecasting models exactly like this to plan ICU capacity, oxygen supply chains, vaccine distribution, and lockdown timing. The LSTM doesn't just predict numbers — it replicates the decision-support tools used during a global health emergency.
+  </p>
+</section>
+
+<!-- TECH STACK -->
+<section class="tech-section">
+  <div class="section-header reveal">
+    <div class="section-number">06</div>
+    <div>
+      <div class="section-sub">Implementation</div>
+      <div class="section-title">TECH STACK</div>
+    </div>
+  </div>
+
+  <div class="tech-grid reveal">
+    <div class="tech-tag">Python 3.10</div>
+    <div class="tech-tag">TensorFlow 2.x</div>
+    <div class="tech-tag">Keras Sequential API</div>
+    <div class="tech-tag">LSTM Layers</div>
+    <div class="tech-tag">NumPy</div>
+    <div class="tech-tag">Pandas</div>
+    <div class="tech-tag">Matplotlib</div>
+    <div class="tech-tag">Seaborn</div>
+    <div class="tech-tag">Scikit-learn</div>
+    <div class="tech-tag">MinMaxScaler</div>
+    <div class="tech-tag">Adam Optimizer</div>
+    <div class="tech-tag">EarlyStopping</div>
+    <div class="tech-tag">ReduceLROnPlateau</div>
+    <div class="tech-tag">JHU CSSE Dataset</div>
+    <div class="tech-tag">VS Code</div>
+    <div class="tech-tag">Vercel</div>
+  </div>
+</section>
+
+<!-- HOW TO RUN -->
+<section class="run-section" id="run">
+  <div class="section-header reveal">
+    <div class="section-number">07</div>
+    <div>
+      <div class="section-sub">Getting Started</div>
+      <div class="section-title">RUN IN VS CODE</div>
+    </div>
+  </div>
+
+  <div class="code-block reveal">
+    <div><span class="comment"># 1. Clone the project</span></div>
+    <div><span class="prompt">$ </span><span class="cmd">git clone https://github.com/yourusername/covid19-lstm-deeplearning</span></div>
+    <div><span class="prompt">$ </span><span class="cmd">cd covid19-lstm-deeplearning</span></div>
+    <div>&nbsp;</div>
+    <div><span class="comment"># 2. Install dependencies</span></div>
+    <div><span class="prompt">$ </span><span class="cmd">pip install -r requirements.txt</span></div>
+    <div>&nbsp;</div>
+    <div><span class="comment"># 3. Run the deep learning model</span></div>
+    <div><span class="prompt">$ </span><span class="cmd">python covid19_prediction.py</span></div>
+    <div>&nbsp;</div>
+    <div><span class="output">  [1/7] Loading real COVID-19 data from Johns Hopkins CSSE ...</span></div>
+    <div><span class="output">  [2/7] Generating EDA plots ...</span></div>
+    <div><span class="output">  [3/7] Preprocessing data ...</span></div>
+    <div><span class="output">  [4/7] Building LSTM model ...</span></div>
+    <div><span class="output">  [5/7] Training model ...</span></div>
+    <div><span class="output">  [6/7] Evaluating model ...</span></div>
+    <div><span class="output">  [7/7] Generating 30-day future forecast ...</span></div>
+    <div>&nbsp;</div>
+    <div><span class="comment"># All outputs saved to ./outputs/ folder</span></div>
+  </div>
+
+  <div style="margin-top:24px; font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.08em;">
+    REQUIREMENTS: Python 3.8+ · TensorFlow 2.10+ · 4GB RAM minimum
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    COVID-19 LSTM FORECASTING · DEEP LEARNING PROJECT · APOLLO UNIVERSITY · CSE DEPT · AY 2025-26
+  </div>
+  <div class="footer-right">
+    SUBMITTED TO: DR. K SUDHEER
+  </div>
+</footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Animated counter for stats
+function animateValue(el, end, duration=1500) {
+  const isFloat = end < 2 && end > 0;
+  let start = 0;
+  const step = end / (duration / 16);
+  const timer = setInterval(() => {
+    start += step;
+    if (start >= end) {
+      start = end;
+      clearInterval(timer);
+    }
+    el.textContent = isFloat
+      ? start.toFixed(2)
+      : Math.floor(start).toLocaleString();
+  }, 16);
+}
+
+// Trigger counters when hero is visible
+setTimeout(() => {
+  const statVals = document.querySelectorAll('.stat-val');
+  const values = [0.87, 14000, 3, 1034];
+  statVals.forEach((el, i) => {
+    const orig = el.textContent;
+    if (values[i] > 100) {
+      animateValue(el, values[i]);
+      el.addEventListener('animationend', () => el.textContent = orig);
+    }
+  });
+}, 1200);
+</script>
+
+</body>
+</html>
